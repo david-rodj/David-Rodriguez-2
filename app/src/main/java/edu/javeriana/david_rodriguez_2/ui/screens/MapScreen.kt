@@ -23,7 +23,7 @@ fun MapScreen() {
 
     // Estado para los puntos de la ruta
     var routePoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
-    var totalDistanceKm by remember { mutableStateOf(0.0) }
+    var totalDistanceKm by remember { mutableDoubleStateOf(0.0) }
     var cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(bogotaCoords, 14f)
     }
