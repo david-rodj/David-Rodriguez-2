@@ -72,6 +72,8 @@ dependencies {
     // Google Maps para Compose
     implementation("com.google.maps.android:maps-compose:6.4.1")
 
+    implementation("androidx.compose.material:material-icons-extended")
+
     // Google Play Services para mapas
     implementation("com.google.android.gms:play-services-maps:19.2.0")
 }

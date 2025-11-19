@@ -15,21 +15,25 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Minimize
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import edu.javeriana.david_rodriguez_2.R
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 @Composable
 fun MapScreen() {
     val bogotaCoords = LatLng(4.658768900734289, -74.0934688649813)
 
-    // Estado para los puntos de la ruta
-    var routePoints by remember { mutableStateOf<List<LatLng>>(emptyList()) }
-    var totalDistanceKm by remember { mutableDoubleStateOf(0.0) }
-    var cameraPositionState = rememberCameraPositionState {
+    val routePoints = remember { mutableStateOf<List<LatLng>>(emptyList()) }
+    val totalDistanceKm = remember { mutableDoubleStateOf(0.0) }
+    val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(bogotaCoords, 14f)
     }
 
+    val scope = rememberCoroutineScope()
+
     Box(modifier = Modifier.fillMaxSize()) {
-        // GoogleMap
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
@@ -39,18 +43,17 @@ fun MapScreen() {
                 myLocationButtonEnabled = false
             ),
             onMapLongClick = { latLng ->
-                routePoints = routePoints + latLng
-                totalDistanceKm = calculateTotalDistanceKm(routePoints)
+                routePoints.value = routePoints.value + latLng
+                totalDistanceKm.doubleValue = calculateTotalDistanceKm(routePoints.value)
             }
         ) {
-            // Dibujar polylines para cada segmento
-            for (i in 0 until routePoints.size - 1) {
-                val start = routePoints[i]
-                val end = routePoints[i + 1]
+            for (i in 0 until routePoints.value.size - 1) {
+                val start = routePoints.value[i]
+                val end = routePoints.value[i + 1]
 
                 val color = when {
-                    totalDistanceKm < 2 -> Color.Green
-                    totalDistanceKm <= 5 -> Color.Yellow
+                    totalDistanceKm.doubleValue < 2 -> Color.Green
+                    totalDistanceKm.doubleValue <= 5 -> Color.Yellow
                     else -> Color.Red
                 }
 
@@ -62,19 +65,27 @@ fun MapScreen() {
             }
 
             // Marcador de inicio
-            if (routePoints.isNotEmpty()) {
+            if (routePoints.value.isNotEmpty()) {
+                val inicioState = remember(routePoints.value.first()) {
+                    MarkerState(position = routePoints.value.first())
+                }
                 Marker(
-                    state = MarkerState(position = routePoints.first()),
-                    title = "Inicio"
+                    state = inicioState,
+                    title = "Inicio",
+                    icon = BitmapDescriptorFactory.fromResource(R.drawable.inicio)
                 )
             }
 
             // Marcador de fin
-            if (routePoints.size >= 2) {
+            if (routePoints.value.size >= 2) {
+                val finState = remember(routePoints.value.last()) {
+                    MarkerState(position = routePoints.value.last())
+                }
                 Marker(
-                    state = MarkerState(position = routePoints.last()),
+                    state = finState,
                     title = "Fin",
-                    snippet = String.format("%.2f km", totalDistanceKm)
+                    snippet = String.format(Locale.US, "%.2f km", totalDistanceKm.doubleValue),
+                    icon = BitmapDescriptorFactory.fromResource(R.drawable.fin)
                 )
             }
         }
@@ -88,9 +99,11 @@ fun MapScreen() {
         ) {
             FloatingActionButton(
                 onClick = {
-                    cameraPositionState.animate(
-                        CameraUpdateFactory.zoomIn()
-                    )
+                    scope.launch {
+                        cameraPositionState.animate(
+                            CameraUpdateFactory.zoomIn()
+                        )
+                    }
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(48.dp)
@@ -100,15 +113,17 @@ fun MapScreen() {
 
             FloatingActionButton(
                 onClick = {
-                    cameraPositionState.animate(
-                        CameraUpdateFactory.zoomOut()
-                    )
+                    scope.launch {
+                        cameraPositionState.animate(
+                            CameraUpdateFactory.zoomOut()
+                        )
+                    }
                 },
                 containerColor = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Close,
+                    imageVector = Icons.Default.Minimize,
                     contentDescription = "Zoom Out",
                     modifier = Modifier.size(24.dp)
                 )
@@ -118,9 +133,15 @@ fun MapScreen() {
         // Botón de reiniciar en la esquina superior derecha
         FloatingActionButton(
             onClick = {
-                routePoints = emptyList()
-                totalDistanceKm = 0.0
-                cameraPositionState.position = CameraPosition.fromLatLngZoom(bogotaCoords, 14f)
+                routePoints.value = emptyList()
+                totalDistanceKm.doubleValue = 0.0
+                scope.launch {
+                    cameraPositionState.animate(
+                        CameraUpdateFactory.newCameraPosition(
+                            CameraPosition.fromLatLngZoom(bogotaCoords, 14f)
+                        )
+                    )
+                }
             },
             containerColor = MaterialTheme.colorScheme.error,
             modifier = Modifier
@@ -131,7 +152,7 @@ fun MapScreen() {
         }
 
         // Información en la parte superior
-        if (routePoints.isNotEmpty()) {
+        if (routePoints.value.isNotEmpty()) {
             Card(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -142,11 +163,11 @@ fun MapScreen() {
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
-                        "Puntos: ${routePoints.size}",
+                        "Puntos: ${routePoints.value.size}",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        "Distancia: %.2f km".format(totalDistanceKm),
+                        "Distancia: %.2f km".format(totalDistanceKm.doubleValue),
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
